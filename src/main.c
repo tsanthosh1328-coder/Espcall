@@ -15,7 +15,7 @@ void app_main(void)
     // audio_init();
 
     // Phase 2: Codec (G.711 encode/decode)
-    // g711_test();
+    g711_test();
 
     // Phase 3: RTP stack
     // rtp_init();
