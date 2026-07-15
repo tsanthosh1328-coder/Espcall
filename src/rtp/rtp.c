@@ -65,7 +65,7 @@ int rtp_send(rtp_ctx_t *ctx, const uint8_t *payload, uint16_t payload_len)
     ctx->timestamp += RTP_TIMESTAMP_DELTA;
     hdr.ssrc = htonl(ctx->ssrc);
 
-    uint8_t buf[RTP_HEADER_SIZE + payload_len];
+    static uint8_t buf[RTP_HEADER_SIZE + 160];
     memcpy(buf, &hdr, RTP_HEADER_SIZE);
     memcpy(buf + RTP_HEADER_SIZE, payload, payload_len);
 
