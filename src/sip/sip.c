@@ -235,10 +235,36 @@ static char *sip_get_header(const char *msg, const char *hdr, char *val, size_t 
 static int sip_parse_auth(const char *msg, char *realm, size_t realm_sz,
                           char *nonce, size_t nonce_sz)
 {
-    char auth_hdr[512];
-    if (!sip_get_header(msg, "WWW-Authenticate", auth_hdr, sizeof(auth_hdr))) {
+    // Search case-insensitively for WWW-Authenticate
+    const char *p = msg;
+    const char *auth_start = NULL;
+
+    while (*p) {
+        if (strncasecmp(p, "WWW-Authenticate:", 17) == 0) {
+            auth_start = p + 17;
+            break;
+        }
+        p++;
+    }
+
+    if (!auth_start) {
+        printf("SIP: WWW-Authenticate header not found\n");
         return -1;
     }
+
+    // Skip spaces
+    while (*auth_start == ' ' || *auth_start == '\t') auth_start++;
+
+    // Find end of header line
+    char auth_hdr[512];
+    const char *end = strstr(auth_start, "\r\n");
+    if (!end) end = auth_start + strlen(auth_start);
+    size_t len = (size_t)(end - auth_start);
+    if (len >= sizeof(auth_hdr)) len = sizeof(auth_hdr) - 1;
+    memcpy(auth_hdr, auth_start, len);
+    auth_hdr[len] = '\0';
+
+    printf("SIP: WWW-Authenticate: %s\n", auth_hdr);
 
     const char *r = strstr(auth_hdr, "realm=");
     if (r) {
@@ -246,11 +272,12 @@ static int sip_parse_auth(const char *msg, char *realm, size_t realm_sz,
         if (*r == '"') r++;
         const char *re = strchr(r, '"');
         if (!re) re = r + strlen(r);
-        size_t len = (size_t)(re - r);
-        if (len >= realm_sz) len = realm_sz - 1;
-        memcpy(realm, r, len);
-        realm[len] = '\0';
+        size_t rlen = (size_t)(re - r);
+        if (rlen >= realm_sz) rlen = realm_sz - 1;
+        memcpy(realm, r, rlen);
+        realm[rlen] = '\0';
     } else {
+        printf("SIP: realm not found\n");
         return -1;
     }
 
@@ -260,14 +287,16 @@ static int sip_parse_auth(const char *msg, char *realm, size_t realm_sz,
         if (*n == '"') n++;
         const char *ne = strchr(n, '"');
         if (!ne) ne = n + strlen(n);
-        size_t len = (size_t)(ne - n);
-        if (len >= nonce_sz) len = nonce_sz - 1;
-        memcpy(nonce, n, len);
-        nonce[len] = '\0';
+        size_t nlen = (size_t)(ne - n);
+        if (nlen >= nonce_sz) nlen = nonce_sz - 1;
+        memcpy(nonce, n, nlen);
+        nonce[nlen] = '\0';
     } else {
+        printf("SIP: nonce not found\n");
         return -1;
     }
 
+    printf("SIP: realm='%s' nonce='%s'\n", realm, nonce);
     return 0;
 }
 
@@ -332,7 +361,7 @@ void sip_init(sip_ctx_t *ctx, const sip_config_t *config)
     setsockopt(ctx->socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     struct timeval tv;
-    tv.tv_sec = 5;
+    tv.tv_sec = 10;
     tv.tv_usec = 0;
     setsockopt(ctx->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 

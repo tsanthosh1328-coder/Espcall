@@ -2,6 +2,7 @@
 #define SIP_H
 
 #include <stdint.h>
+#include <lwip/sockets.h>
 
 typedef enum {
     SIP_STATE_IDLE,
